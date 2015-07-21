@@ -1,6 +1,8 @@
 #ifndef DEFINE_LINKEDLIST	//define이 안되어있으면 true
 typedef struct _MEMBER
 {
+	char* pMemberID;	//멤버ID
+	char* pPassWord;	//멤버 PassWord
 	char* pName;		//멤버이름
 	int pAge;			//멤버나이
 	char* pPhone;		//멤버전화번호
@@ -49,8 +51,11 @@ typedef struct _LINKEDLIST
 	int iCount;
 }LINKEDLIST;
 
-
-
+typedef struct _PACKET
+{
+	int iTotalSize;
+	int iPacketGubun;
+}PACKET;
 
 void LinkNode(LINKEDLIST * pLinkedList, void * pData, NODE * pSearch);
 void AddTop(LINKEDLIST * pLinkedList, void * pData);
@@ -65,7 +70,7 @@ void InsertChar(const char * pTitle, char ** MemberData);
 void InsertInt(const char * pTitle, int * MemberData);
 void InputMemberData(NODE** pNode);
 void InputVideoData(NODE** pNode);
-void InputMember(LINKEDLIST* list);
+void InputMember(LINKEDLIST* list, void* temp);
 void InputVideo(LINKEDLIST* list);
 void PrintMember(NODE * pStart);
 void PrintVideo(NODE * pStart);
@@ -75,8 +80,8 @@ NODE * SSearchName(LINKEDLIST* list, char* iSearch);
 NODE * SSearchNumber(LINKEDLIST* list, int iSearch);
 void SearchMember(LINKEDLIST* list);
 void SearchVideo(LINKEDLIST* list);
-void ModifyMember(LINKEDLIST* list);
-void ModifyVideo(LINKEDLIST* list);
+void ModifyMember(LINKEDLIST* list, void* recvtemp);
+void ModifyVideo(LINKEDLIST* list, void* recvtemp);
 void DeleteMember(LINKEDLIST* list);
 void DeleteVideo(LINKEDLIST* list);
 void InputRentalData(LINKEDLIST* Memberlist, LINKEDLIST* Videolist, NODE** Rebtallist);

@@ -15,10 +15,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="SingleProgectVideoManagement.cpp">
+    <ClCompile Include="VideoMangement.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="VideoMangement.cpp">
+    <ClCompile Include="SingleProgectVideoManagement.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>

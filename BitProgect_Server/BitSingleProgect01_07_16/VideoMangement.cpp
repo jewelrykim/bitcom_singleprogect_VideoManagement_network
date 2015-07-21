@@ -118,13 +118,34 @@ void InsertInt(const char * pTitle,int * MemberData){
 	scanf_s("%d", MemberData);
 	fflush(stdin);
 }
-void InputMemberData(NODE** pNode){
+void InputMemberData(NODE** pNode,void* temp){
 	MEMBER * Member = (MEMBER *)malloc(sizeof(MEMBER));
 	(*pNode)->pData = Member;
-	InsertChar("회원 이름 : ", &((MEMBER*)((*pNode)->pData))->pName);
-	InsertInt("회원 나이 : ",&((MEMBER*)((*pNode)->pData))->pAge);
-	InsertChar("회원 전화번호 : ", &((MEMBER*)((*pNode)->pData))->pPhone);
+
+	char* pRecvMemberID = (char*)temp +sizeof(PACKET);	// client가보내준 아이디
+	//temp는 char 배열의 시작주소이다.+ packet(index)의 크기=>128byte만 받기 위해서 배열로 포인터로 바꿔준다
+	char *pRecvMemberPW = (char*)temp + sizeof(PACKET)+128; //client 보낸 비밀번호
+	//id(128Byte) 이후의 데이터pw
+	char*pRecvMemberName = (char*)temp + sizeof(PACKET)+256;	// client가보내준 멤버이름
+	int pRecvMemberAge = (int)temp + sizeof(PACKET)+384;		// client가보내준 멤버나이
+	char*pRecvMemberPhoneNumber = (char*)temp + sizeof(PACKET)+388; //client 보낸 멤버전화번호
+
+	((MEMBER*)((*pNode)->pData))->pMemberID = (char*)malloc(strlen(pRecvMemberID)+1);
+	strcpy_s(((MEMBER*)((*pNode)->pData))->pMemberID, strlen(pRecvMemberID) + 1, pRecvMemberID);
+
+	((MEMBER*)((*pNode)->pData))->pPassWord = (char*)malloc(strlen(pRecvMemberPW) + 1);
+	strcpy_s(((MEMBER*)((*pNode)->pData))->pPassWord, strlen(pRecvMemberPW) + 1, pRecvMemberPW);
+
+	((MEMBER*)((*pNode)->pData))->pName = (char*)malloc(strlen(pRecvMemberName) + 1);
+	strcpy_s(((MEMBER*)((*pNode)->pData))->pName, strlen(pRecvMemberName) + 1, pRecvMemberName);
+
+	((MEMBER*)((*pNode)->pData))->pAge = (int)malloc(4);
+	((MEMBER*)((*pNode)->pData))->pAge = pRecvMemberAge;
+
+	((MEMBER*)((*pNode)->pData))->pPhone = (char*)malloc(strlen(pRecvMemberPhoneNumber) + 1);
+	strcpy_s(((MEMBER*)((*pNode)->pData))->pPhone, strlen(pRecvMemberPhoneNumber) + 1, pRecvMemberPhoneNumber);
 }
+
 void InputVideoData(NODE** pNode){
 	int switch_on = 0;
 	VIDEO* Video = (VIDEO*)malloc(sizeof(VIDEO));
@@ -147,9 +168,9 @@ void InputVideoData(NODE** pNode){
 		break;
 	}
 }
-void InputMember(LINKEDLIST* list){
+void InputMember(LINKEDLIST* list,void* temp){		//temp는 client가 입력한 데이터를 그대로 가져온 것이다. void를 풀고 파라메타로 받으면 파라메타수가 너무 많아지기 때문에 그대로 받았다.
 	NODE * pNode = (NODE *)malloc(sizeof(NODE));
-	InputMemberData(&pNode);
+	InputMemberData(&pNode,temp);
 	list->AddBottom(list, (void *)pNode->pData);
 }
 void InputVideo(LINKEDLIST* list){
@@ -206,7 +227,7 @@ NODE * SSearchName(LINKEDLIST* list, char* iSearch){
 	NODE * pStart = list->pTop;
 	while (pStart){
 
-		if (strcmp(((MEMBER*)(pStart->pData))->pName,iSearch) == 0)
+		if (strcmp(((MEMBER*)(pStart->pData))->pMemberID,iSearch) == 0)
 		{
 			return pStart;
 		}
@@ -250,7 +271,8 @@ void SearchVideo(LINKEDLIST* list){
 	}
 	PrintVideo(pFindFlag);
 }
-void ModifyMember(LINKEDLIST* list){
+void ModifyMember(LINKEDLIST* list,void* recvtemp)	//temp는 client가 입력한 데이터를 그대로 가져온 것이다. void를 풀고 파라메타로 받으면 파라메타수가 너무 많아지기 때문에 그대로 받았다.
+{
 	char temp[1024] = { ' ' };
 	printf("찾을 값 : ");
 	gets_s(temp, sizeof(temp));
@@ -260,9 +282,10 @@ void ModifyMember(LINKEDLIST* list){
 		printf("그런거 없다.");
 		return;
 	}
-	InputMemberData(&pFindFlag);
+	InputMemberData(&pFindFlag, recvtemp);
 }
-void ModifyVideo(LINKEDLIST* list){
+void ModifyVideo(LINKEDLIST* list, void* recvtemp)	//temp는 client가 입력한 데이터를 그대로 가져온 것이다. void를 풀고 파라메타로 받으면 파라메타수가 너무 많아지기 때문에 그대로 받았다.
+{
 	int temp = 0;
 	printf("찾을 값 : ");
 	scanf_s("%d", &temp);
@@ -272,7 +295,7 @@ void ModifyVideo(LINKEDLIST* list){
 		printf("그런거 없다.");
 		return;
 	}
-	InputMemberData(&pFindFlag);
+	InputMemberData(&pFindFlag, recvtemp);
 }
 void DeleteMember(LINKEDLIST* list){
 	char temp[1024] = { ' ' };

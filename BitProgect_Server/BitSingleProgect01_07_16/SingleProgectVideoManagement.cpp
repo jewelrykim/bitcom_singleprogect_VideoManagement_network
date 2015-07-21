@@ -10,6 +10,8 @@
 
 #define  PG_CHATMSG 1
 #define  PG_KILLUSER 2
+#define  PG_LOGIN 3
+#define  PG_SIGNUP 4
 
 typedef struct _THREADPARM
 {
@@ -19,12 +21,6 @@ typedef struct _THREADPARM
 	LINKEDLIST * pRenTalList;
 	SOCKET Socket;
 }THREADPARAM;
-
-typedef struct _PACKET
-{
-	int iTotalSize;
-	int iPacketGubun;
-}PACKET;
 
 void SendMessage(SOCKET ClientSocket, const char* pMsg, int iMsgLen)
 {
@@ -55,6 +51,7 @@ bool GetPacket(char RecvBuffer[], int *piCurrent, char temp[])
 	memcpy(temp, RecvBuffer, pPacket->iTotalSize);
 	*piCurrent -= pPacket->iTotalSize;
 	memcpy(RecvBuffer, RecvBuffer + pPacket->iTotalSize, *piCurrent);
+	return true;
 }
 bool EqualFunc(NODE* pNode, void* pData)
 {
@@ -79,10 +76,11 @@ bool DeleteClient(LINKEDLIST * pList, SOCKET DeleteSocket)
 unsigned CALLBACK RecvLoginFunc(void* pParam)
 {
 	THREADPARAM *p = (THREADPARAM*)pParam;
-
+	LINKEDLIST *pList = p->pLinkedList;
+	LINKEDLIST *pMemberList = p->pMemberLIst;
+	LINKEDLIST *pVideo = p->pVideoList;
+	LINKEDLIST *pRent = p->pRenTalList;
 	SOCKET ClientSocket = p->Socket;
-	LINKEDLIST* pList = p->pLinkedList;
-	LINKEDLIST* pMemberList = p->pMemberLIst;
 	char RecvBuffer[4096*2];
 	int iCurrent = 0;
 	while (1){
@@ -90,25 +88,40 @@ unsigned CALLBACK RecvLoginFunc(void* pParam)
 		int iRecvLen = recv(ClientSocket, RecvBuffer + iCurrent, 4096, NULL);
 		if (iRecvLen <= 0)
 		{
-			DeleteClient(pList, ClientSocket);
+			DeleteClient(p->pLinkedList, ClientSocket);
 			break;
 		}
 		iCurrent += iRecvLen;
+
 		while (GetPacket(RecvBuffer, &iCurrent, temp))
 		{
 			PACKET* pPacket = (PACKET*)temp;
-			char (*pRecvID)[128] = (char(*)[128])(temp + sizeof(PACKET));	// client가보내준 아이디
-			//temp는 char 배열의 시작주소이다.+ packet(index)의 크기=>128byte만 받기 위해서 배열로 포인터로 바꿔준다
-			char(*pRecvPW)[128] = (char(*)[128])(temp + sizeof(PACKET)+128); //client 보낸 비밀번호
-			//id(128Byte) 이후의 데이터pw
-			NODE * pFindFlag = SSearchName(pMemberList, temp);	//memberlist에서 찾는다.
-			if (pFindFlag == NULL){
-				DeleteBottom(pList);
-				SendPacket(ClientSocket, PG_KILLUSER, "", 0);
-				break;
+			if (pPacket->iPacketGubun == PG_LOGIN){
+				char * pID = temp + sizeof(PACKET);
+				char * pPW = temp + sizeof(PACKET) + 128;
+				//id(128Byte) 이후의 데이터pw
+				NODE * pFindFlag = SSearchName(pMemberList, pID);	//memberlist에서 찾는다.
+				if (pFindFlag == NULL){
+					DeleteBottom(pList);
+					SendPacket(ClientSocket, PG_KILLUSER, "", 0);
+					break;
+				}
+				printf("%s", ((MEMBER*)pFindFlag->pData)->pName);
+				//SendPacket(ClientSocket, PG_LOGIN, (char*)pFindFlag, strlen(temp) + 1);
+			}
+			else if (pPacket->iPacketGubun == PG_SIGNUP)
+			{
+
+				InputMember(pMemberList,(void*)temp);
+				SendPacket(ClientSocket, PG_SIGNUP, temp, strlen(temp) + 1);
+			}
+			else if (pPacket->iPacketGubun == PG_CHATMSG)
+			{
+				printf("우와 자유민이다\n" );
 			}
 		}
 	}
+
 	free(p);
 	closesocket(ClientSocket);
 	return 0;
@@ -120,6 +133,9 @@ unsigned CALLBACK AcceptFunc(void* pParam){
 	THREADPARAM * p = (THREADPARAM*)pParam;
 	SOCKET ServerSocket = p->Socket;
 	LINKEDLIST *pList = p->pLinkedList;
+	LINKEDLIST *pMember = p->pMemberLIst;
+	LINKEDLIST *pVideo = p->pVideoList;
+	LINKEDLIST *pRent = p->pRenTalList;
 
 	while (1)
 	{
@@ -136,13 +152,17 @@ unsigned CALLBACK AcceptFunc(void* pParam){
 
 		THREADPARAM* pRecvParam = (THREADPARAM*)malloc(sizeof(THREADPARAM));
 		pRecvParam->pLinkedList = pList;
+		pRecvParam->pMemberLIst = pMember;
+		pRecvParam->pRenTalList = pVideo;
+		pRecvParam->pVideoList = pRent;
 		pRecvParam->Socket = ClientSocket;
 		_beginthreadex(NULL, NULL, RecvLoginFunc, (void*)pRecvParam, NULL, NULL);
-		const char* pMsg = "접속을 환영합니다.~";
-		SendPacket(ClientSocket, PG_CHATMSG, pMsg, strlen(pMsg) + 1);
+		/*const char* pMsg = "접속을 환영합니다.~";
+		SendPacket(ClientSocket, PG_CHATMSG, pMsg, strlen(pMsg) + 1);*/
 	}
 	return 0;
 }
+
 
 void main()
 {
@@ -202,9 +222,11 @@ void main()
 	AcceptParam.pRenTalList = &Rentallist;
 	AcceptParam.Socket = ServerSocket;
 	_beginthreadex(NULL, NULL, AcceptFunc, (void*)&AcceptParam, NULL, NULL);
+	
 	int iChoice = 1;
 	while (iChoice != 0)
 	{
+
 		printf("1. 접속자 관리 \n");
 		printf("2. 전체 메시지 전송 \n");
 		scanf_s("%d", &iChoice);
