@@ -34,6 +34,37 @@ void LinkNode(LINKEDLIST * pLinkedList, void * pData, NODE * pSearch)
 	}
 	++(pLinkedList->iCount);
 }
+void LinkFindNode(LINKEDLIST * pLinkedList, void * pData, NODE * pSearch)
+{
+	NODE * pNode = (NODE *)malloc(sizeof(NODE));
+	pNode->pPre = NULL;
+	pNode->pNext = NULL;
+	pNode->pData = pData;
+	if (pLinkedList->iCount == NULL)
+	{
+		pLinkedList->pTop = pLinkedList->pBottom = pNode;
+	}
+	else if (((VIDEO*)(pLinkedList->pTop)->pData)->iVNumber > ((VIDEO*)pData)->iVNumber)
+	{
+		pNode->pNext = pLinkedList->pTop;
+		pLinkedList->pTop->pPre = pNode;
+		pLinkedList->pTop = pNode;
+	}
+	else if (((VIDEO*)(pLinkedList->pBottom)->pData)->iVNumber < ((VIDEO*)pData)->iVNumber)
+	{
+		pNode->pPre = pLinkedList->pBottom;
+		pLinkedList->pBottom->pNext = pNode;
+		pLinkedList->pBottom = pNode;
+	}
+	else
+	{
+		pNode->pPre = pSearch->pPre;
+		pNode->pNext = pSearch;
+		pSearch->pPre->pNext = pNode;
+		pSearch->pPre = pNode;
+	}
+	++(pLinkedList->iCount);
+}
 void AddTop(LINKEDLIST * pLinkedList, void * pData)
 {
 	LinkNode(pLinkedList, pData, pLinkedList->pTop);
@@ -41,6 +72,27 @@ void AddTop(LINKEDLIST * pLinkedList, void * pData)
 void AddBottom(LINKEDLIST * pLinkedList, void * pData)
 {
 	LinkNode(pLinkedList, pData, NULL);
+}
+void AddPoint(LINKEDLIST * pLinkedList, void * pData)
+{
+	NODE* pStart = pLinkedList->pTop;
+
+	while (pStart)
+	{
+		if (((VIDEO*)pData)->iVNumber < ((VIDEO*)pStart->pData)->iVNumber)
+		{
+			LinkFindNode(pLinkedList, pData, pStart);
+			return;
+		}
+		pStart = pStart->pNext;
+	}
+	if (pLinkedList->iCount == 0)
+	{
+		LinkFindNode(pLinkedList, pData, NULL);
+		return;
+	}
+	else
+		LinkFindNode(pLinkedList, pData, pLinkedList->pBottom);
 }
 bool DeleteAt(LINKEDLIST * pLinkedList, NODE * pSearch)
 {
@@ -84,12 +136,13 @@ bool DeleteAll(LINKEDLIST * pLinkedList)
 	while (DeleteTop(pLinkedList));
 	return NULL;
 }
-void InitLinkedList(LINKEDLIST * pLinkedList, ADDNODE AddTop, ADDNODE AddBottom, DELETEAT DeleteAt, DELETENODE DeleteTop, DELETENODE DeleteBottom, DELETENODE DeleteAll)
+void InitLinkedList(LINKEDLIST * pLinkedList, ADDNODE AddTop, ADDNODE AddBottom, ADDNODE AddPoint, DELETEAT DeleteAt, DELETENODE DeleteTop, DELETENODE DeleteBottom, DELETENODE DeleteAll)
 {
 	pLinkedList->pBottom = NULL;
 	pLinkedList->pTop = NULL;
 	pLinkedList->AddTop = AddTop;
 	pLinkedList->AddBottom = AddBottom;
+	pLinkedList->AddPoint = AddPoint;
 	pLinkedList->DeleteAt = DeleteAt;
 	pLinkedList->DeleteTop = DeleteTop;
 	pLinkedList->DeleteBottom = DeleteBottom;
@@ -155,41 +208,63 @@ void InputMemberData_Server(MEMBER* pMember)
 
 }
 void InputVideoData(VIDEO * pVideo){
-	int switch_on = 0;
+
 	InsertInt("비디오 번호 : ", &(pVideo->iVNumber));
 	InsertChar("비디오 이름 : ", &(pVideo->pVName));
 	InsertInt("비디오 등급 : ", &(pVideo->iGrade));
-	printf("1.대여 가능, 2.대여 불가 \n");
-	scanf_s("%d", &switch_on);
-	fflush(stdin);
-	switch (switch_on)
-	{
-	case 1:
-		printf("대여 가능\n");
-		pVideo->bRent = true;
-		break;
-	default:
-		printf("대여중 \n");
-		pVideo->bRent = false;
-		break;
-	}
+	pVideo->bRent = true;
+	pVideo->bReservation = false;
 }
-void InputMember_Client(LINKEDLIST* list,void* temp)
+void InputMember_Client(LINKEDLIST* Memberlist, LINKEDLIST* LoginList,void* temp)
 {		//temp는 client가 입력한 데이터를 그대로 가져온 것이다. void를 풀고 파라메타로 받으면 파라메타수가 너무 많아지기 때문에 그대로 받았다.
 	MEMBER * pMember = (MEMBER *)malloc(sizeof(MEMBER));
 	InputMemberData_Client(pMember, temp);
-	list->AddBottom(list, (void *)pMember);
+	Memberlist->AddBottom(Memberlist, (void *)pMember);
+	LoginList->AddBottom(LoginList, (void*)pMember);
 }
-void InputMember_Server(LINKEDLIST* list)
+void InputMember_Server(LINKEDLIST* Memberlist, LINKEDLIST* LoginList)
 {	
+	NODE * pStar = Memberlist->pTop;
 	MEMBER * pMember = (MEMBER *)malloc(sizeof(MEMBER));
 	InputMemberData_Server(pMember);
-	list->AddBottom(list, (void *)pMember);
+	while (pStar)
+	{
+		if(strcmp(pMember->pMemberID, ((MEMBER *)pStar->pData)->pMemberID) == 0)
+		{
+			printf("같은 ID가 있습니다.");
+			return ;
+		}
+		pStar = pStar->pNext;
+	}
+	if (pMember->pAge<0 || pMember->pAge>150)
+	{
+		printf("나이 값이 올바르지 않습니다.\n");
+		return;
+	}
+	Memberlist->AddBottom(Memberlist, (void *)pMember);
+	LoginList->AddBottom(LoginList, (void*)pMember);
 }
 void InputVideo(LINKEDLIST* list){
+	NODE * pStar = list->pTop;
 	VIDEO * pVideo = (VIDEO *)malloc(sizeof(VIDEO));
 	InputVideoData(pVideo);
-	list->AddBottom(list, (void *)pVideo);
+	while (pStar)
+	{
+		if (pVideo->iVNumber == ((VIDEO*)(pStar->pData))->iVNumber)
+		{
+			printf("같은 번호를 갖은 비디오가 있습니다.\n");
+			return;
+		}
+		pStar = pStar->pNext;
+	}
+/*
+	if (list->iCount == 0)
+	{
+		list->AddBottom(list, (void *)pVideo);
+	}*/
+	
+		list->AddPoint(list, (void *)pVideo);
+	
 }
 void PrintMember(NODE * pStart){
 		printf("회원 아이디 : %s\n", ((MEMBER*)(pStart->pData))->pMemberID);
@@ -262,7 +337,21 @@ NODE * SSearchName(LINKEDLIST* list, char* iSearch){
 	}
 	return NULL;
 }
-NODE * SSearchVideoName(LINKEDLIST* list, char* iSearch)
+NODE * SSearchRentalName(LINKEDLIST* list, char* iSearch)
+{
+	NODE * pStart = list->pTop;
+	while (pStart){
+
+		if (strcmp(((RENTAL*)(pStart->pData))->pRMemberName, iSearch) == 0)
+		{
+			return pStart;
+		}
+		pStart = pStart->pNext;
+	}
+	return NULL;
+}
+
+NODE * SSearchVideoName(LINKEDLIST* list,char* iSearch)
 {
 	NODE * pStart = list->pTop;
 	while (pStart){
@@ -275,11 +364,48 @@ NODE * SSearchVideoName(LINKEDLIST* list, char* iSearch)
 	}
 	return NULL;
 }
+NODE * MSearchVideoName(LINKEDLIST* list, LINKEDLIST* SameNameRentalList, char* iSearch)
+{
+	NODE * pStart = list->pTop;
+	while (pStart){
+
+		if (strcmp(((VIDEO*)(pStart->pData))->pVName, iSearch) == 0)
+		{
+			VIDEO * p = (VIDEO *)malloc(sizeof(VIDEO));
+			p->iVNumber = ((VIDEO*)(pStart->pData))->iVNumber;
+			p->pVName = (char*)malloc(strlen(((VIDEO*)(pStart->pData))->pVName) + 1);
+			strcpy_s(p->pVName, strlen(((VIDEO*)(pStart->pData))->pVName) + 1, ((VIDEO*)(pStart->pData))->pVName);
+
+			p->iGrade = ((VIDEO*)(pStart->pData))->iGrade;
+			p->bRent = ((VIDEO*)(pStart->pData))->bRent;
+			p->bReservation = ((VIDEO*)(pStart->pData))->bReservation;
+
+			SameNameRentalList->AddBottom(SameNameRentalList, p);
+		}
+		pStart = pStart->pNext;
+	}
+	if (SameNameRentalList->pTop == NULL)
+		return NULL;
+	else
+		return SameNameRentalList->pTop;
+}
 NODE * SSearchNumber(LINKEDLIST* list, int iSearch){
 	NODE * pStart = list->pTop;
 	while (pStart){
 
 		if (((VIDEO*)(pStart->pData))->iVNumber== iSearch)
+		{
+			return pStart;
+		}
+		pStart = pStart->pNext;
+	}
+	return NULL;
+}
+NODE * SSearchRentalNumber(LINKEDLIST* list, int iSearch){
+	NODE * pStart = list->pTop;
+	while (pStart){
+
+		if (((RENTAL*)(pStart->pData))->iRVideoNum == iSearch)
 		{
 			return pStart;
 		}
@@ -295,7 +421,7 @@ void SearchMember(LINKEDLIST* list){
 	fflush(stdin);
 	NODE * pFindFlag = SSearchName(list, temp);
 	if (pFindFlag == NULL){
-		printf("일치하는 회원이 없습니다.");
+		printf("일치하는 회원이 없습니다.\n");
 		return;
 	}
 	PrintMember(pFindFlag);
@@ -308,12 +434,19 @@ void SearchVideo(LINKEDLIST* list){
 	fflush(stdin);
 	NODE * pFindFlag = SSearchNumber(list, temp);
 	if (pFindFlag == NULL){
-		printf("일치하는 비디오가 없습니다.");
+		printf("일치하는 비디오가 없습니다.\n");
 		return;
 	}
 	PrintVideo(pFindFlag);
 }
-void ModifyMember(LINKEDLIST* list)	//temp는 client가 입력한 데이터를 그대로 가져온 것이다. void를 풀고 파라메타로 받으면 파라메타수가 너무 많아지기 때문에 그대로 받았다.
+void ModifyMember_Client(LINKEDLIST* Memberlist,char * temp)	//temp는 client가 입력한 데이터를 그대로 가져온 것이다. void를 풀고 파라메타로 받으면 파라메타수가 너무 많아지기 때문에 그대로 받았다.
+{
+	char * ClientID = temp + sizeof(PACKET);
+	NODE * pFindFlag = SSearchID(Memberlist, ClientID);		//memberlist에서 찾는다.로그인한 상태이기 때문에 없을 수가 없다
+	
+	InputMemberData_Client((MEMBER*)(pFindFlag->pData), temp);
+}
+void ModifyMember_Server(LINKEDLIST* list)	//temp는 client가 입력한 데이터를 그대로 가져온 것이다. void를 풀고 파라메타로 받으면 파라메타수가 너무 많아지기 때문에 그대로 받았다.
 {
 	char temp[1024] = { ' ' };
 	printf("수정할 회원 이름 : ");
@@ -321,7 +454,7 @@ void ModifyMember(LINKEDLIST* list)	//temp는 client가 입력한 데이터를 그대로 가�
 	fflush(stdin);
 	NODE * pFindFlag = SSearchName(list, temp);
 	if (pFindFlag == NULL){
-		printf("일치하는 회원이 없습니다.");
+		printf("일치하는 회원이 없습니다.\n");
 		return;
 	}
 	InputMemberData_Server((MEMBER*)pFindFlag->pData);
@@ -334,12 +467,18 @@ void ModifyVideo(LINKEDLIST* list)	//temp는 client가 입력한 데이터를 그대로 가져
 	fflush(stdin);
 	NODE * pFindFlag = SSearchNumber(list, temp);
 	if (pFindFlag == NULL){
-		printf("일치하는 비디오가 없습니다.");
+		printf("일치하는 비디오가 없습니다.\n");
 		return;
 	}
 	InputVideoData((VIDEO*)pFindFlag->pData);
 }
-void DeleteMember(LINKEDLIST* list){
+void DeleteMember_Client(LINKEDLIST* Memberlist, char * temp)
+{
+	NODE * pFindFlag = SSearchID(Memberlist, temp);
+	Memberlist->DeleteAt(Memberlist, pFindFlag);
+
+}
+void DeleteMember_Server(LINKEDLIST* list){
 	char temp[1024] = { ' ' };
 	printf("삭제할 회원 이름 : ");
 	gets_s(temp, sizeof(temp));
@@ -351,7 +490,7 @@ void DeleteMember(LINKEDLIST* list){
 	}
 	else
 	{
-		printf("일치하는 회원이 없습니다.");
+		printf("일치하는 회원이 없습니다.\n");
 	}
 }
 void DeleteVideo(LINKEDLIST* list){
@@ -366,61 +505,21 @@ void DeleteVideo(LINKEDLIST* list){
 	}
 	else
 	{
-		printf("일치하는 비디오가 없습니다.");
+		printf("일치하는 비디오가 없습니다.\n");
 	}
 }
-/*
-void InputRentalData(LINKEDLIST* Memberlist, LINKEDLIST* Videolist, NODE** Rebtallist){
-	RENTAL* pRental = (RENTAL*)malloc(sizeof(RENTAL));
-	(*Rebtallist)->pData = pRental;
-	char Name[1024] = { ' ' };
+int InputRentalData_Server(LINKEDLIST* Memberlist, LINKEDLIST* Videolist, RENTAL* pRental){
+
+	char MemberID[1024] = { ' ' };
 	int Number = 0;
-	printf("회원 이름 : ");
-	gets_s(Name, sizeof(Name));
+	printf("회원 아이디 : ");
+	gets_s(MemberID, sizeof(MemberID));
 	fflush(stdin);
-	NODE * pFindMember = SSearchName(Memberlist, Name);
+	NODE * pFindMember = SSearchID(Memberlist, MemberID);
 	if (pFindMember == NULL){
-		printf("그런고객 없다.");
-		return;
+		printf("일치하는 회원이 없습니다.\n");
+		return 1;
 	}
-	((RENTAL*)((*Rebtallist)->pData))->pRMemberName = ((MEMBER*)pFindMember->pData)->pName;
-
-	printf("비디오 번호 : ");
-	scanf_s("%d", &Number);
-	fflush(stdin);
-	NODE * pFindVideo = SSearchNumber(Videolist, Number);
-	if (pFindVideo == NULL){
-		printf("그런비디오 없다.\n");
-		return;
-	}
-	if (((VIDEO*)(pFindVideo->pData))->bRent == false)
-	{
-		printf("이미 대여중.\n");
-		return;
-	}
-	if (((VIDEO*)(pFindVideo->pData))->iGrade > ((MEMBER*)pFindMember->pData)->pAge)
-	{
-		printf("넌 못봐\n");
-		return;
-	}
-	((VIDEO*)(pFindVideo->pData))->bRent = false;
-	((RENTAL*)((*Rebtallist)->pData))->iRVideoNum = ((VIDEO*)pFindVideo->pData)->iVNumber;
-	((RENTAL*)((*Rebtallist)->pData))->pRVideoName = ((VIDEO*)pFindVideo->pData)->pVName;
-
-}*/
-void InputRentalData(LINKEDLIST* Memberlist, LINKEDLIST* Videolist, RENTAL* pRental){
-
-	char Name[1024] = { ' ' };
-	int Number = 0;
-	printf("회원 이름 : ");
-	gets_s(Name, sizeof(Name));
-	fflush(stdin);
-	NODE * pFindMember = SSearchName(Memberlist, Name);
-	if (pFindMember == NULL){
-		printf("일치하는 회원이 없습니다.");
-		return;
-	}
-	pRental->pRMemberName = ((MEMBER*)pFindMember->pData)->pName;
 
 	printf("비디오 번호 : ");
 	scanf_s("%d", &Number);
@@ -428,62 +527,87 @@ void InputRentalData(LINKEDLIST* Memberlist, LINKEDLIST* Videolist, RENTAL* pRen
 	NODE * pFindVideo = SSearchNumber(Videolist, Number);
 	if (pFindVideo == NULL){
 		printf("일치하는 비디오가 없습니다.\n");
-		return;
+		return 1;
 	}
 	if (((VIDEO*)(pFindVideo->pData))->bRent == false)
 	{
 		printf("이미 대여중입니다.\n");
-		return;
+		return 1;
 	}
 	if (((VIDEO*)(pFindVideo->pData))->iGrade > ((MEMBER*)pFindMember->pData)->pAge)
 	{
 		printf("%d 이상 관람가 비디오입니다.\n", ((VIDEO*)(pFindVideo->pData))->iGrade);
-		return;
+		return 1;
 	}
 	((VIDEO*)(pFindVideo->pData))->bRent = false;
+	pRental->pMemberID = ((MEMBER*)pFindMember->pData)->pMemberID;
+	pRental->pRMemberName = ((MEMBER*)pFindMember->pData)->pName;
+	pRental->iRVideoNum = ((VIDEO*)pFindVideo->pData)->iVNumber;
+	pRental->pRVideoName = ((VIDEO*)pFindVideo->pData)->pVName;
+	return 0;
+}
+void InPutRentalData_Client(LINKEDLIST* Memberlist, LINKEDLIST* Videolist, LINKEDLIST* SameNameRentalList, RENTAL* pRental, void* Member, void* Video,int VideoNum)
+{
+	
+	NODE * pFindMember = SSearchID(Memberlist, (char*) Member);		//일치하는 고객이 없을 수 없다.
+	NODE * pStart = SameNameRentalList->pTop;
+	NODE * pFindVideo = SSearchNumber(Videolist, VideoNum);
+
+	((VIDEO*)(pFindVideo->pData))->bRent = false;
+	pRental->pMemberID = ((MEMBER*)pFindMember->pData)->pMemberID;
+	pRental->pRMemberName = ((MEMBER*)pFindMember->pData)->pName;
 	pRental->iRVideoNum = ((VIDEO*)pFindVideo->pData)->iVNumber;
 	pRental->pRVideoName = ((VIDEO*)pFindVideo->pData)->pVName;
 
+
 }
-void InPutRentalData_Client(LINKEDLIST* Memberlist, LINKEDLIST* Videolist, RENTAL* pRental, void* Member, void* Video)
+void InputRental_Server(LINKEDLIST* Memberlist, LINKEDLIST* Videolist, LINKEDLIST* Rentallist)
 {
+	RENTAL* pRental = (RENTAL*)malloc(sizeof(RENTAL));
 	
-	NODE * pFindMember = SSearchName(Memberlist, (char*) Member);		//일치하는 고객이 없을 수 없다.
-	pRental->pRMemberName = ((MEMBER*)pFindMember->pData)->pName;
-
-	NODE * pFindVideo = SSearchVideoName(Videolist, (char*)Video);			//일치하는 비디오가 없을 수 없다.
-	pRental->pRVideoName = ((VIDEO*)pFindVideo->pData)->pVName;			//이미 검사를 끝냈기 때문에 못빌릴 수 없다.
-
-	((VIDEO*)(pFindVideo->pData))->bRent = false;
-	pRental->iRVideoNum = ((VIDEO*)pFindVideo->pData)->iVNumber;
-		
+	if (InputRentalData_Server(Memberlist, Videolist, pRental) == 0){
+		Rentallist->AddBottom(Rentallist, (void *)pRental);
+		return ;
+	}
 }
-void InputRental(LINKEDLIST* Memberlist, LINKEDLIST* Videolist, LINKEDLIST* Rentallist)
+void InputRental_Client(LINKEDLIST* Memberlist, LINKEDLIST* Videolist, LINKEDLIST* Rentallist, LINKEDLIST* SameNameRentalList, void* Member, void* Video,int VideoNum)
 {
 	RENTAL* pRental = (RENTAL*)malloc(sizeof(RENTAL));
-	InputRentalData(Memberlist, Videolist, pRental);
-	Rentallist->AddBottom(Rentallist, (void *)pRental);
-}
-void InputRental_Client(LINKEDLIST* Memberlist, LINKEDLIST* Videolist, LINKEDLIST* Rentallist,void* Member,void* Video)
-{
-	RENTAL* pRental = (RENTAL*)malloc(sizeof(RENTAL));
-	InPutRentalData_Client(Memberlist, Videolist, pRental, Member, Video);
+	InPutRentalData_Client(Memberlist, Videolist, SameNameRentalList, pRental, Member, Video,VideoNum);
 	Rentallist->AddBottom(Rentallist, (void *)pRental);
 
 }
 
-void ReturnVideo(LINKEDLIST* Rentallist){
+int ReturnVideo_Client(LINKEDLIST* Rentallist, LINKEDLIST* Videolist, int VideoNum)
+{
+	NODE * pFindFlag = SSearchRentalNumber(Rentallist, VideoNum);
+	NODE * pFindVideo = SSearchNumber(Videolist, VideoNum);
+	if (pFindFlag == NULL){
+		printf("일치하는 비디오 번호가 없습니다.\n");
+		return 1;
+	}
+	((VIDEO *)pFindFlag->pData)->bRent = true;
+	((VIDEO *)pFindVideo->pData)->bRent = true;
+	DeleteAt(Rentallist, pFindFlag);
+	printf(" 번 비디오가 반납됬습니다.\n");
+	return 0;
+}
+void ReturnVideo(LINKEDLIST* Rentallist, LINKEDLIST* Videolist){
 	int temp = 0;
 	printf("반납할 비디오 번호 : ");
 	scanf_s("%d", &temp);
 	fflush(stdin);
-	NODE * pFindFlag = SSearchNumber(Rentallist, temp);
+	NODE * pFindFlag = SSearchRentalNumber(Rentallist, temp);
+	NODE * pFindVideo = SSearchNumber(Videolist, temp);
 	if (pFindFlag == NULL){
-		printf("일치하는 비디오 번호가 없습니다.");
-		return;
+		printf("일치하는 비디오 번호가 없습니다.\n");
+		return ;
 	}
 	((VIDEO *)pFindFlag->pData)->bRent = true;
+	((VIDEO *)pFindVideo->pData)->bRent = true;
 	DeleteAt(Rentallist,pFindFlag);
+	printf("비디오를 반납했습니다.\n");
+
 }
 
 void PrintRentallist(LINKEDLIST* Rentallist){
@@ -491,7 +615,7 @@ void PrintRentallist(LINKEDLIST* Rentallist){
 	while (pStart)
 	{
 		printf("회원 이름 : %s\n", ((RENTAL*)(pStart->pData))->pRMemberName);
-		printf("비디오 번호 : %d\n", (((RENTAL*)(pStart)->pData))->iRVideoNum);
+		printf("비디오 번호 : %d\n", (((RENTAL*)pStart->pData))->iRVideoNum);
 		printf("비디오 이름 : %s\n", ((RENTAL*)(pStart->pData))->pRVideoName);
 		if (((VIDEO*)(pStart->pData))->bRent == true){
 			printf("대여 가능\n");
@@ -499,6 +623,24 @@ void PrintRentallist(LINKEDLIST* Rentallist){
 		else{
 			printf("대여중...대여불가능\n");
 		}
+		pStart = pStart->pNext;
+		printf("\n");
+	}
+	if (Rentallist->iCount == 0)
+		printf("대여중인 비디오가 없습니다.");
+	printf("\n");
+}
+void PrintMemberRentalList(LINKEDLIST* Rentallist,char temp[])
+{
+	NODE * pStart = Rentallist->pTop;
+	while (pStart)
+	{
+		if (strcmp(((RENTAL*)(pStart->pData))->pRMemberName, temp) == 0)
+		{
+			printf("회원 이름 : %s\n", ((RENTAL*)(pStart->pData))->pRMemberName);
+			printf("비디오 번호 : %d\n", (((RENTAL*)pStart->pData))->iRVideoNum);
+			printf("비디오 이름 : %s\n", ((RENTAL*)(pStart->pData))->pRVideoName);
+		}		
 		pStart = pStart->pNext;
 	}
 }
@@ -542,7 +684,7 @@ void File_Read_bool(FILE * fp, bool *pData)
 
 }
 
-void File_Read_Member(LINKEDLIST* MemberList )
+void File_Read_Member(LINKEDLIST* MemberList)
 {
 	FILE *fp;
 	fopen_s(&fp, "MemberList.txt", "r");
@@ -623,6 +765,8 @@ void File_Write_Rental(LINKEDLIST* RentalList)
 	fprintf(fp, "%d\n", RentalList->iCount);
 	for (int index = 0; index < RentalList->iCount; index++)
 	{
+		RENTAL * p = (RENTAL*)(pStart->pData);
+		fprintf(fp, "%s\n", ((RENTAL*)(pStart->pData))->pMemberID);
 		fprintf(fp, "%s\n", ((RENTAL*)(pStart->pData))->pRMemberName);
 		fprintf(fp, "%d\n", ((RENTAL*)(pStart->pData))->iRVideoNum);
 		fprintf(fp, "%s\n", ((RENTAL*)(pStart->pData))->pRVideoName);
@@ -644,7 +788,7 @@ void File_Read_Rental(LINKEDLIST* RentalList)
 		while (count != 0)
 		{
 			RENTAL * pRental = (RENTAL *)malloc(sizeof(RENTAL));
-
+			File_Read_char(fp, &(pRental->pMemberID));
 			File_Read_char(fp, &(pRental->pRMemberName));
 			File_Read_int(fp, &(pRental->iRVideoNum));
 			File_Read_char(fp, &(pRental->pRVideoName));
@@ -655,98 +799,3 @@ void File_Read_Rental(LINKEDLIST* RentalList)
 		fclose(fp);
 	}
 }
-/*
-void VideoManagemanetMain()
-{
-	char mode = '1';
-	char cManageMember = '1';
-	char cManageVideo = '1';
-	char cManageRental = '1';
-	LINKEDLIST Memberlist;
-	Memberlist.InitList = InitLinkedList;
-	Memberlist.InitList(&Memberlist, AddTop, AddBottom, DeleteAt, DeleteTop, DeleteBottom, DeleteAll);
-
-	LINKEDLIST Videolist;
-	Videolist.InitList = InitLinkedList;
-	Videolist.InitList(&Videolist, AddTop, AddBottom, DeleteAt, DeleteTop, DeleteBottom, DeleteAll);
-
-	LINKEDLIST Rentallist;
-	Rentallist.InitList = InitLinkedList;
-	Rentallist.InitList(&Rentallist, AddTop, AddBottom, DeleteAt, DeleteTop, DeleteBottom, DeleteAll);
-
-	while (mode != '0'){
-		printf("\nmode 선택 ( 1 = 사용자 관리 , 2 = 비디오 관리 , 3 = 대여 관리, 0 = 종료) \n");
-		mode = getchar();
-		fflush(stdin);
-
-		switch (mode)
-		{
-		case '1':
-			printf("\nmode 선택 ( 1 = 회원 등록 , 2 = 회원 목록 , 3 = 회원 검색, 4 = 회원 정보수정 ,5 = 회원 삭제 0 = 돌아가기) \n");
-			cManageMember = getchar();
-			fflush(stdin);
-			switch (cManageMember){
-			case '1':
-				InputMember(&Memberlist);
-				break;
-			case '2':
-				vPrintMember(&Memberlist);
-				break;
-			case '3':
-				SearchMember(&Memberlist);
-				break;
-			case '4':
-				ModifyMember(&Memberlist);
-				break;
-			case '5':
-				DeleteMember(&Memberlist);
-				break;
-			default:
-				cManageMember = '0';
-				break;
-			}
-			break;
-		case '2':
-			printf("\nmode 선택 ( 1 = 비디오 등록 , 2 = 비디오 목록 , 3 = 비디오 검색, 4 = 비디오 정보수정 ,5 = 비디오 삭제 0 = 돌아가기) \n");
-			cManageVideo = getchar();
-			fflush(stdin);
-			switch (cManageVideo){
-			case '1':
-				InputVideo(&Videolist);
-				break;
-			case '2':
-				vPrintVideo(&Videolist);
-				break;
-			case '3':
-				SearchVideo(&Videolist);
-				break;
-			case '4':
-				ModifyVideo(&Videolist);
-				break;
-			case '5':
-				DeleteVideo(&Videolist);
-				break;
-			default:
-				cManageVideo = '0';
-				break;
-			}
-			break;
-		case '3':
-			printf("\nmode 선택 ( 1 = 비디오 대여 , 2 = 비디오 반납 , 3 = 비디오 대여목록 ,0 = 돌아가기) \n");
-			cManageRental = getchar();
-			fflush(stdin);
-			switch (cManageRental){
-			case '1':
-				InputRental(&Memberlist, &Videolist, &Rentallist);
-				break;
-			case '2':
-				ReturnVideo(&Rentallist);
-				break;
-			case '3':
-				PrintRentallist(&Rentallist);
-				break;
-			}
-		}
-	}
-}
-*/
